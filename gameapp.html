@@ -19,14 +19,6 @@
       display: block;
       border: 1px solid white;
     }
-    .overlay {
-      position: absolute;
-      background: rgba(0, 0, 0, 0.8);
-      color: white;
-      font-size: 20px;
-      text-align: center;
-      padding: 20px;
-    }
   </style>
 </head>
 <body>
@@ -49,7 +41,7 @@
     ];
 
     const SHAPES = [
-      [[[1, 1, 1, 1]]], // I
+      [[[1, 1, 1, 1]], [[1], [1], [1], [1]]], // I (rotates now)
       [[[1, 1], [1, 1]]], // O
       [[[0, 1, 0], [1, 1, 1]], [[1, 0], [1, 1], [1, 0]], [[1, 1, 1], [0, 1, 0]], [[0, 1], [1, 1], [0, 1]]], // T
       [[[1, 0, 0], [1, 1, 1]], [[1, 1], [1, 0], [1, 0]], [[1, 1, 1], [0, 0, 1]], [[0, 1], [0, 1], [1, 1]]], // L
@@ -60,6 +52,7 @@
 
     let grid = Array.from({ length: GRID_HEIGHT }, () => Array(GRID_WIDTH).fill(null));
     let speed = null;
+    let gameOverCode = null;
 
     function drawText(message, subMessage = null) {
       ctx.fillStyle = 'black';
@@ -76,11 +69,20 @@
 
     function askSpeed() {
       return new Promise((resolve) => {
-        drawText("Select:", "1. Blue 2. Green 3. Red");
+        drawText("Select Speed:", "1. Blue (Slow)  2. Green (Normal)  3. Red (Fast)");
         window.addEventListener('keydown', function handleSpeedSelection(e) {
           if (['1', '2', '3'].includes(e.key)) {
             window.removeEventListener('keydown', handleSpeedSelection);
-            resolve(e.key === '1' ? 1000 : e.key === '2' ? 500 : 200);
+            if (e.key === '1') {
+              gameOverCode = 'CODE 100';
+              resolve(1000);
+            } else if (e.key === '2') {
+              gameOverCode = 'CODE 200';
+              resolve(500);
+            } else {
+              gameOverCode = 'CODE 300';
+              resolve(200);
+            }
           }
         });
       });
@@ -169,6 +171,13 @@
       });
     }
 
+    function checkGameOverOnRowCompletion() {
+      if (grid.some(row => row.every(cell => cell))) {
+        return true;
+      }
+      return false;
+    }
+
     function clearRows() {
       const rowsToClear = grid.filter(row => row.every(cell => cell));
       rowsToClear.forEach(() => grid.splice(grid.indexOf(rowsToClear), 1));
@@ -190,10 +199,16 @@
           if (checkCollision(currentPiece)) {
             currentPiece.y--;
             fixPiece(currentPiece);
+            if (checkGameOverOnRowCompletion()) {
+              drawText("GAME OVER", gameOverCode);
+              setTimeout(() => location.reload(), 4000);
+              gameOver = true;
+              return;
+            }
             clearRows();
             currentPiece = spawnPiece();
             if (checkCollision(currentPiece)) {
-              drawText("GAME OVER", "CODE 100");
+              drawText("GAME OVER", gameOverCode);
               setTimeout(() => location.reload(), 4000);
               gameOver = true;
               return;
