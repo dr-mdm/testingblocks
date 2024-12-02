@@ -1,0 +1,190 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Tetris Game</title>
+  <style>
+    body {
+      margin: 0;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      height: 100vh;
+      background-color: black;
+    }
+    canvas {
+      display: block;
+      border: 1px solid white;
+    }
+  </style>
+</head>
+<body>
+  <canvas id="gameCanvas"></canvas>
+  <script>
+    const canvas = document.getElementById('gameCanvas');
+    const ctx = canvas.getContext('2d');
+
+    const BLOCK_SIZE = 30;
+    const GRID_WIDTH = 10;
+    const GRID_HEIGHT = 20;
+    const WIDTH = GRID_WIDTH * BLOCK_SIZE;
+    const HEIGHT = GRID_HEIGHT * BLOCK_SIZE;
+
+    canvas.width = WIDTH;
+    canvas.height = HEIGHT;
+
+    const COLORS = [
+      'cyan', 'red', 'green', 'yellow', 'blue', 'magenta', 'orange'
+    ];
+
+    const SHAPES = [
+      [[[1, 1, 1, 1]]], // I
+      [[[1, 1], [1, 1]]], // O
+      [[[0, 1, 0], [1, 1, 1]], [[1, 0], [1, 1], [1, 0]], [[1, 1, 1], [0, 1, 0]], [[0, 1], [1, 1], [0, 1]]], // T
+      [[[1, 0, 0], [1, 1, 1]], [[1, 1], [1, 0], [1, 0]], [[1, 1, 1], [0, 0, 1]], [[0, 1], [0, 1], [1, 1]]], // L
+      [[[0, 0, 1], [1, 1, 1]], [[1, 0], [1, 0], [1, 1]], [[1, 1, 1], [1, 0, 0]], [[1, 1], [0, 1], [0, 1]]], // J
+      [[[0, 1, 1], [1, 1, 0]], [[1, 0], [1, 1], [0, 1]]], // S
+      [[[1, 1, 0], [0, 1, 1]], [[0, 1], [1, 1], [1, 0]]] // Z
+    ];
+
+    let grid = Array.from({ length: GRID_HEIGHT }, () => Array(GRID_WIDTH).fill(null));
+
+    class Piece {
+      constructor(x, y, shape) {
+        this.x = x;
+        this.y = y;
+        this.shape = shape;
+        this.color = COLORS[Math.floor(Math.random() * COLORS.length)];
+        this.rotation = 0;
+      }
+
+      rotate() {
+        this.rotation = (this.rotation + 1) % this.shape.length;
+      }
+
+      get blocks() {
+        return this.shape[this.rotation];
+      }
+    }
+
+    let currentPiece = spawnPiece();
+    let speed = 500; // Default speed
+    let lastDropTime = Date.now();
+
+    function drawGrid() {
+      ctx.strokeStyle = 'white';
+      for (let x = 0; x <= WIDTH; x += BLOCK_SIZE) {
+        ctx.beginPath();
+        ctx.moveTo(x, 0);
+        ctx.lineTo(x, HEIGHT);
+        ctx.stroke();
+      }
+      for (let y = 0; y <= HEIGHT; y += BLOCK_SIZE) {
+        ctx.beginPath();
+        ctx.moveTo(0, y);
+        ctx.lineTo(WIDTH, y);
+        ctx.stroke();
+      }
+    }
+
+    function drawPiece(piece) {
+      piece.blocks.forEach((row, i) => {
+        row.forEach((cell, j) => {
+          if (cell) {
+            ctx.fillStyle = piece.color;
+            ctx.fillRect((piece.x + j) * BLOCK_SIZE, (piece.y + i) * BLOCK_SIZE, BLOCK_SIZE, BLOCK_SIZE);
+          }
+        });
+      });
+    }
+
+    function drawGridContents() {
+      grid.forEach((row, y) => {
+        row.forEach((cell, x) => {
+          if (cell) {
+            ctx.fillStyle = cell;
+            ctx.fillRect(x * BLOCK_SIZE, y * BLOCK_SIZE, BLOCK_SIZE, BLOCK_SIZE);
+          }
+        });
+      });
+    }
+
+    function spawnPiece() {
+      const shape = SHAPES[Math.floor(Math.random() * SHAPES.length)];
+      const startX = Math.floor((GRID_WIDTH - shape[0][0].length) / 2);
+      return new Piece(startX, 0, shape);
+    }
+
+    function checkCollision(piece) {
+      return piece.blocks.some((row, i) =>
+        row.some((cell, j) => {
+          if (!cell) return false;
+          const x = piece.x + j;
+          const y = piece.y + i;
+          return x < 0 || x >= GRID_WIDTH || y >= GRID_HEIGHT || grid[y] && grid[y][x];
+        })
+      );
+    }
+
+    function fixPiece(piece) {
+      piece.blocks.forEach((row, i) => {
+        row.forEach((cell, j) => {
+          if (cell) {
+            grid[piece.y + i][piece.x + j] = piece.color;
+          }
+        });
+      });
+    }
+
+    function clearRows() {
+      grid = grid.filter(row => row.some(cell => !cell));
+      while (grid.length < GRID_HEIGHT) {
+        grid.unshift(Array(GRID_WIDTH).fill(null));
+      }
+    }
+
+    function gameLoop() {
+      const now = Date.now();
+      if (now - lastDropTime > speed) {
+        currentPiece.y++;
+        if (checkCollision(currentPiece)) {
+          currentPiece.y--;
+          fixPiece(currentPiece);
+          clearRows();
+          currentPiece = spawnPiece();
+          if (checkCollision(currentPiece)) {
+            alert('Game Over!');
+            grid = Array.from({ length: GRID_HEIGHT }, () => Array(GRID_WIDTH).fill(null));
+          }
+        }
+        lastDropTime = now;
+      }
+
+      ctx.clearRect(0, 0, WIDTH, HEIGHT);
+      drawGridContents();
+      drawGrid();
+      drawPiece(currentPiece);
+      requestAnimationFrame(gameLoop);
+    }
+
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'ArrowLeft') {
+        currentPiece.x--;
+        if (checkCollision(currentPiece)) currentPiece.x++;
+      } else if (e.key === 'ArrowRight') {
+        currentPiece.x++;
+        if (checkCollision(currentPiece)) currentPiece.x--;
+      } else if (e.key === 'ArrowUp') {
+        currentPiece.rotate();
+        if (checkCollision(currentPiece)) currentPiece.rotation = (currentPiece.rotation - 1) % currentPiece.shape.length;
+      } else if (e.key === 'ArrowDown') {
+        currentPiece.y++;
+        if (checkCollision(currentPiece)) currentPiece.y--;
+      }
+    });
+
+    gameLoop();
+  </script>
+</body>
+</html>
