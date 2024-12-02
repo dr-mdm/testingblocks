@@ -200,7 +200,7 @@
             currentPiece.y--;
             fixPiece(currentPiece);
             if (checkGameOverOnRowCompletion()) {
-              drawText("GAME OVER", gameOverCode);
+              drawText("GAME COMPLETED", gameOverCode);
               setTimeout(() => location.reload(), 4000);
               gameOver = true;
               return;
@@ -208,7 +208,7 @@
             clearRows();
             currentPiece = spawnPiece();
             if (checkCollision(currentPiece)) {
-              drawText("GAME OVER", gameOverCode);
+              drawText("GAME COMPLETED", gameOverCode);
               setTimeout(() => location.reload(), 4000);
               gameOver = true;
               return;
