@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Tetris Game</title>
+  <title>Custom Tetris</title>
   <style>
     body {
       margin: 0;
@@ -12,10 +12,20 @@
       align-items: center;
       height: 100vh;
       background-color: black;
+      color: white;
+      font-family: Arial, sans-serif;
     }
     canvas {
       display: block;
       border: 1px solid white;
+    }
+    .overlay {
+      position: absolute;
+      background: rgba(0, 0, 0, 0.8);
+      color: white;
+      font-size: 20px;
+      text-align: center;
+      padding: 20px;
     }
   </style>
 </head>
@@ -49,6 +59,32 @@
     ];
 
     let grid = Array.from({ length: GRID_HEIGHT }, () => Array(GRID_WIDTH).fill(null));
+    let speed = null;
+
+    function drawText(message, subMessage = null) {
+      ctx.fillStyle = 'black';
+      ctx.fillRect(0, 0, WIDTH, HEIGHT);
+      ctx.fillStyle = 'white';
+      ctx.font = '24px Arial';
+      ctx.textAlign = 'center';
+      ctx.fillText(message, WIDTH / 2, HEIGHT / 3);
+      if (subMessage) {
+        ctx.font = '16px Arial';
+        ctx.fillText(subMessage, WIDTH / 2, HEIGHT / 3 + 40);
+      }
+    }
+
+    function askSpeed() {
+      return new Promise((resolve) => {
+        drawText("Select Speed:", "1. Blue (Slow)  2. Green (Normal)  3. Red (Fast)");
+        window.addEventListener('keydown', function handleSpeedSelection(e) {
+          if (['1', '2', '3'].includes(e.key)) {
+            window.removeEventListener('keydown', handleSpeedSelection);
+            resolve(e.key === '1' ? 1000 : e.key === '2' ? 500 : 200);
+          }
+        });
+      });
+    }
 
     class Piece {
       constructor(x, y, shape) {
@@ -68,9 +104,11 @@
       }
     }
 
-    let currentPiece = spawnPiece();
-    let speed = 500; // Default speed
-    let lastDropTime = Date.now();
+    function spawnPiece() {
+      const shape = SHAPES[Math.floor(Math.random() * SHAPES.length)];
+      const startX = Math.floor((GRID_WIDTH - shape[0][0].length) / 2);
+      return new Piece(startX, 0, shape);
+    }
 
     function drawGrid() {
       ctx.strokeStyle = 'white';
@@ -110,12 +148,6 @@
       });
     }
 
-    function spawnPiece() {
-      const shape = SHAPES[Math.floor(Math.random() * SHAPES.length)];
-      const startX = Math.floor((GRID_WIDTH - shape[0][0].length) / 2);
-      return new Piece(startX, 0, shape);
-    }
-
     function checkCollision(piece) {
       return piece.blocks.some((row, i) =>
         row.some((cell, j) => {
@@ -138,53 +170,64 @@
     }
 
     function clearRows() {
-      grid = grid.filter(row => row.some(cell => !cell));
-      while (grid.length < GRID_HEIGHT) {
-        grid.unshift(Array(GRID_WIDTH).fill(null));
-      }
+      const rowsToClear = grid.filter(row => row.every(cell => cell));
+      rowsToClear.forEach(() => grid.splice(grid.indexOf(rowsToClear), 1));
+      while (grid.length < GRID_HEIGHT) grid.unshift(Array(GRID_WIDTH).fill(null));
     }
 
-    function gameLoop() {
-      const now = Date.now();
-      if (now - lastDropTime > speed) {
-        currentPiece.y++;
-        if (checkCollision(currentPiece)) {
-          currentPiece.y--;
-          fixPiece(currentPiece);
-          clearRows();
-          currentPiece = spawnPiece();
+    async function main() {
+      speed = await askSpeed();
+      let currentPiece = spawnPiece();
+      let lastDropTime = Date.now();
+      let gameOver = false;
+
+      function gameLoop() {
+        if (gameOver) return;
+
+        const now = Date.now();
+        if (now - lastDropTime > speed) {
+          currentPiece.y++;
           if (checkCollision(currentPiece)) {
-            alert('Game Over!');
-            grid = Array.from({ length: GRID_HEIGHT }, () => Array(GRID_WIDTH).fill(null));
+            currentPiece.y--;
+            fixPiece(currentPiece);
+            clearRows();
+            currentPiece = spawnPiece();
+            if (checkCollision(currentPiece)) {
+              drawText("GAME OVER", "CODE 100");
+              setTimeout(() => location.reload(), 4000);
+              gameOver = true;
+              return;
+            }
           }
+          lastDropTime = now;
         }
-        lastDropTime = now;
+
+        ctx.clearRect(0, 0, WIDTH, HEIGHT);
+        drawGridContents();
+        drawGrid();
+        drawPiece(currentPiece);
+        requestAnimationFrame(gameLoop);
       }
 
-      ctx.clearRect(0, 0, WIDTH, HEIGHT);
-      drawGridContents();
-      drawGrid();
-      drawPiece(currentPiece);
-      requestAnimationFrame(gameLoop);
+      document.addEventListener('keydown', (e) => {
+        if (gameOver) return;
+        if (e.key === 'ArrowLeft') {
+          currentPiece.x--;
+          if (checkCollision(currentPiece)) currentPiece.x++;
+        } else if (e.key === 'ArrowRight') {
+          currentPiece.x++;
+          if (checkCollision(currentPiece)) currentPiece.x--;
+        } else if (e.key === 'ArrowUp') {
+          currentPiece.rotate();
+          if (checkCollision(currentPiece)) currentPiece.rotation = (currentPiece.rotation - 1) % currentPiece.shape.length;
+        }
+      });
+
+      gameLoop();
     }
 
-    document.addEventListener('keydown', (e) => {
-      if (e.key === 'ArrowLeft') {
-        currentPiece.x--;
-        if (checkCollision(currentPiece)) currentPiece.x++;
-      } else if (e.key === 'ArrowRight') {
-        currentPiece.x++;
-        if (checkCollision(currentPiece)) currentPiece.x--;
-      } else if (e.key === 'ArrowUp') {
-        currentPiece.rotate();
-        if (checkCollision(currentPiece)) currentPiece.rotation = (currentPiece.rotation - 1) % currentPiece.shape.length;
-      } else if (e.key === 'ArrowDown') {
-        currentPiece.y++;
-        if (checkCollision(currentPiece)) currentPiece.y--;
-      }
-    });
-
-    gameLoop();
+    main();
   </script>
 </body>
 </html>
+
