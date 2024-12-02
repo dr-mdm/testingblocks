@@ -69,7 +69,7 @@
 
     function askSpeed() {
       return new Promise((resolve) => {
-        drawText("Select Speed:", "1. Blue (Slow)  2. Green (Normal)  3. Red (Fast)");
+        drawText("Select:", "1. Blue 2. Green 3. Red");
         window.addEventListener('keydown', function handleSpeedSelection(e) {
           if (['1', '2', '3'].includes(e.key)) {
             window.removeEventListener('keydown', handleSpeedSelection);
